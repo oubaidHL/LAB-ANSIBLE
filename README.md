@@ -867,7 +867,7 @@ If you get "Device or resource busy" errors:
 **Educational Project** for ITIC Paris - Ansible Automation Training Course
 
 **Author**: Oubaid HLAIMI 
-**Managed by **: M. Melvin BISSOR
+**Managed by**: M. Melvin BISSOR
 **Year**: 2025
 
 ---
