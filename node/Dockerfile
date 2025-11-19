@@ -8,7 +8,8 @@ RUN apt update && apt install -y \
     python3 \
     iputils-ping \
     dnsutils \
-    net-tools
+    net-tools \
+    curl
 
 RUN mkdir /var/run/sshd
 

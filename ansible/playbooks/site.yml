@@ -1,10 +1,35 @@
 ---
-- name: Full infrastructure deployment
-  hosts: all
-  become: yes
+# Full infrastructure deployment
+# This playbook deploys all services in the correct order
 
+# Step 1: Deploy DNS servers first (they need to be operational before clients)
+- name: Deploy DNS servers
+  hosts: "*_dns"
+  become: true
   roles:
-    - common                                        # Apply common config to all servers
-    - { role: web,    when: "'web' in group_names" }
-    - { role: dns,    when: "'dns' in group_names" }
-    - { role: nagios, when: "'nagios' in group_names" }
+    - dns
+  tags: [dns]
+
+# Step 2: Configure DNS clients on all non-DNS servers
+- name: Configure DNS clients
+  hosts: all:!*_dns
+  become: true
+  roles:
+    - common
+  tags: [dns-client, common]
+
+# Step 3: Deploy web servers
+- name: Deploy web servers
+  hosts: "*_web"
+  become: true
+  roles:
+    - web
+  tags: [web]
+
+# Step 4: Deploy Nagios monitoring
+- name: Deploy Nagios servers
+  hosts: "*_nagios"
+  become: true
+  roles:
+    - nagios
+  tags: [nagios]

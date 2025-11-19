@@ -118,31 +118,51 @@
 
 - name: Display forwarders configuration result
   debug:
-    msg: "DNS forwarders configuration {{ 'was updated' if dns_forwarders_config.changed else 'unchanged' }}"
-  tags: [debug, config]
+    msg: DNS forwarders configuration {{ 'updated' if dns_forwarders_config.changed else 'unchanged' }}
+  tags: [debug, dns]
+
+# Gather network facts
+- name: Gather network facts
+  setup:
+    gather_subset:
+      - network
+  tags: [facts, dns, zones]
 
 # Domain configuration
-- name: Create domain configuration file
-  copy:
-    dest: /etc/bind/domain.conf
-    content: |
-      # Domain configuration for {{ env }} environment
-      # Managed by Ansible
-      # Last updated: {{ ansible_date_time.iso8601 }}
-      
-      domain {{ dns_domain }}
-      type authoritative
-      environment={{ env }}
-      hostname={{ inventory_hostname }}
-      os={{ ansible_distribution }}
-      kernel={{ ansible_kernel }}
+- name: Create zone file for domain
+  template:
+    src: zone.j2
+    dest: "/etc/bind/db.{{ dns_domain }}"
     mode: '0644'
     owner: root
     group: bind
-  register: domain_config
+    validate: 'named-checkzone {{ dns_domain }} %s'
+  register: zone_file
   notify:
     - restart dns services
-  tags: [config, dns]
+  tags: [config, dns, zones]
+
+- name: Configure zone in named.conf.local
+  blockinfile:
+    path: /etc/bind/named.conf.local
+    block: |
+      zone "{{ dns_domain }}" {
+          type master;
+          file "/etc/bind/db.{{ dns_domain }}";
+          allow-query { any; };
+          allow-transfer { none; };
+      };
+    marker: "// {mark} ANSIBLE MANAGED ZONE - {{ dns_domain }}"
+    create: yes
+  register: zone_config
+  notify:
+    - restart dns services
+  tags: [config, dns, zones]
+
+- name: Display zone configuration result
+  debug:
+    msg: "Zone {{ dns_domain }} {{ 'was configured' if zone_config.changed else 'already configured' }}"
+  tags: [debug, dns]
 
 # Service facts gathering
 - name: Gather service facts

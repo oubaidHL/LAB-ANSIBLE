@@ -13,7 +13,8 @@ RUN apt update && apt install -y \
     sshpass \
     iputils-ping \
     dnsutils \
-    net-tools
+    net-tools \
+    curl
 
 RUN useradd -m -s /bin/bash ansible && \
     echo "ansible ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \

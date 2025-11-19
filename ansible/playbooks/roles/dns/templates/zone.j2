@@ -1,0 +1,56 @@
+$TTL 86400
+@   IN  SOA {{ inventory_hostname }}.{{ dns_domain }}. admin.{{ dns_domain }}. (
+            {{ ansible_date_time.epoch }}  ; Serial
+            3600                           ; Refresh
+            1800                           ; Retry
+            604800                         ; Expire
+            86400 )                        ; Minimum TTL
+
+; Name servers
+@   IN  NS  {{ inventory_hostname }}.{{ dns_domain }}.
+
+; A records for DNS server
+{{ inventory_hostname }}  IN  A  {{ ansible_host }}
+
+{% if env == 'dev' %}
+; Dev environment hosts (172.20.0.11-14)
+node1   IN  A  172.20.0.11
+node2   IN  A  172.20.0.12
+node3   IN  A  172.20.0.13
+node4   IN  A  172.20.0.14
+
+; Service aliases
+web1    IN  CNAME  node1
+web2    IN  CNAME  node2
+dns     IN  CNAME  node3
+nagios  IN  CNAME  node4
+
+{% elif env == 'test' %}
+; Test environment hosts (172.20.0.15-17)
+node5   IN  A  172.20.0.15
+node6   IN  A  172.20.0.16
+node7   IN  A  172.20.0.17
+
+; Service aliases
+web     IN  CNAME  node5
+dns     IN  CNAME  node6
+nagios  IN  CNAME  node7
+
+{% elif env == 'prod' %}
+; Prod environment hosts (172.20.0.18-21)
+node8   IN  A  172.20.0.18
+node9   IN  A  172.20.0.19
+node10  IN  A  172.20.0.20
+node11  IN  A  172.20.0.21
+
+; Service aliases
+web1    IN  CNAME  node8
+web2    IN  CNAME  node9
+dns     IN  CNAME  node10
+nagios  IN  CNAME  node11
+
+{% endif %}
+
+; Common aliases
+@       IN  A  {{ ansible_host }}
+www     IN  A  {{ ansible_host }}

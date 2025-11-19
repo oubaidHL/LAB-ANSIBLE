@@ -9,6 +9,15 @@ services:
       - "2222:22"
     volumes:
       - ./ansible:/ansible
+    dns:
+      - 172.20.0.13  # Dev DNS (node3)
+      - 172.20.0.16  # Test DNS (node6)
+      - 172.20.0.20  # Prod DNS (node10)
+      - 8.8.8.8      # Fallback
+    dns_search:
+      - iticparis.dev
+      - iticparis.test
+      - iticparis.prod
     networks:
       ansible_net:
         ipv4_address: 172.20.0.10
@@ -18,6 +27,8 @@ services:
     build: ./node
     container_name: node1
     hostname: node1
+    ports:
+      - "8443:443"
     networks:
       ansible_net:
         ipv4_address: 172.20.0.11
@@ -105,6 +116,9 @@ services:
 networks:
   ansible_net:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "true"
     ipam:
       config:
         - subnet: 172.20.0.0/16
+    internal: false
