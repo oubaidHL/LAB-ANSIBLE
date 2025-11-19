@@ -1,8 +1,8 @@
 ---
 # Development environment variables
 env: dev
-dns_domain: dev.local
-nagios_server: nagios.dev.local
+dns_domain: iticparis.dev
+nagios_server: nagios.iticparis.dev
 
 # Environment-specific settings
 deployment_mode: development

@@ -4,6 +4,7 @@
   become: yes
 
   roles:
+    - common                                        # Apply common config to all servers
     - { role: web,    when: "'web' in group_names" }
     - { role: dns,    when: "'dns' in group_names" }
     - { role: nagios, when: "'nagios' in group_names" }

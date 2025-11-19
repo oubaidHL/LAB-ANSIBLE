@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+# DNS configuration for {{ inventory_hostname }}.{{ dns_domain }}
+# Environment: {{ env | upper }}
+
+# Primary DNS server for {{ env }} environment
+nameserver {{ primary_dns }}
+
+# Fallback DNS servers
+{% for dns in fallback_dns_servers %}
+nameserver {{ dns }}
+{% endfor %}
+
+# Search domains
+search {{ dns_search_domains | join(' ') }}
+
+# Options
+options timeout:2 attempts:3 rotate

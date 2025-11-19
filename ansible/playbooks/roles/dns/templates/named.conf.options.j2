@@ -1,0 +1,26 @@
+// Configured by Ansible for {{ env }} environment
+// Generated on {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+
+options {
+    directory "/var/cache/bind";
+    
+    forwarders {
+{% for forwarder in dns_forwarders %}
+        {{ forwarder }};
+{% endfor %}
+    };
+    
+    // Query ACL
+    allow-query { {{ dns_allow_query }}; };
+    
+    // Recursion settings
+    recursion yes;
+    allow-recursion { {{ dns_allow_query }}; };
+    
+    // DNSSEC validation
+    dnssec-validation auto;
+    
+    // Listen on all interfaces
+    listen-on { any; };
+    listen-on-v6 { any; };
+};

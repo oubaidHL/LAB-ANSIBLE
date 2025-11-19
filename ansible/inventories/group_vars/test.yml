@@ -1,8 +1,8 @@
 ---
 # Test environment variables
 env: test
-dns_domain: test.local
-nagios_server: nagios.test.local
+dns_domain: iticparis.test
+nagios_server: nagios.iticparis.test
 
 # Environment-specific settings
 deployment_mode: testing

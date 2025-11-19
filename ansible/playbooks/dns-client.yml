@@ -1,0 +1,7 @@
+---
+# Configure DNS clients on all non-DNS servers
+- hosts: all:!*_dns
+  become: true
+  roles:
+    - common
+  tags: [dns-client]

@@ -1,14 +1,14 @@
 ---
 # Handler with listen directive
-- name: restart bind9
+- name: restart named
   service:
-    name: bind9
+    name: named
     state: restarted
   listen: restart dns services
 
-- name: reload bind9
+- name: reload named
   service:
-    name: bind9
+    name: named
     state: reloaded
   listen: restart dns services
 

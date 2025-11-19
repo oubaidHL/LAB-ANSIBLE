@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+# systemd-resolved configuration for {{ inventory_hostname }}.{{ dns_domain }}
+# Environment: {{ env | upper }}
+
+[Resolve]
+DNS={{ primary_dns }} {{ fallback_dns_servers | join(' ') }}
+FallbackDNS={{ fallback_dns_servers | join(' ') }}
+Domains={{ dns_search_domains | join(' ') }}
+DNSSEC=allow-downgrade
+DNSOverTLS=no
+Cache=yes
+DNSStubListener=yes

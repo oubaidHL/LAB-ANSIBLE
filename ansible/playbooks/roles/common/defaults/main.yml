@@ -1,0 +1,18 @@
+---
+# DNS client configuration variables
+
+# DNS server IPs by environment
+dns_servers:
+  dev: "172.20.0.13"
+  test: "172.20.0.16"
+  prod: "172.20.0.20"
+
+# Fallback DNS servers (public DNS)
+fallback_dns_servers:
+  - "8.8.8.8"
+  - "1.1.1.1"
+
+# DNS search domains
+dns_search_domains:
+  - "{{ dns_domain }}"
+  - "local"

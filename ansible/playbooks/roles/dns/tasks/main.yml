@@ -103,35 +103,15 @@
 
 # DNS configuration
 - name: Configure DNS forwarders and ACLs
-  blockinfile:
-    path: /etc/bind/named.conf.options
-    block: |
-      // Configured by Ansible for {{ env }} environment
-      // Generated on {{ ansible_date_time.date }} {{ ansible_date_time.time }}
-      
-      forwarders {
-        {% for forwarder in dns_forwarders %}
-        {{ forwarder }};  // Forwarder {{ loop.index }}
-        {% endfor %}
-      };
-      
-      // Query ACL
-      allow-query { {{ dns_allow_query }}; };
-      
-      // Recursion settings
-      recursion yes;
-      allow-recursion { {{ dns_allow_query }}; };
-      
-      // DNSSEC validation
-      dnssec-validation auto;
-      
-      // Listen on all interfaces
-      listen-on { any; };
-      listen-on-v6 { any; };
-    marker: "# {mark} ANSIBLE MANAGED BLOCK - {{ env | upper }}"
+  template:
+    src: named.conf.options.j2
+    dest: /etc/bind/named.conf.options
+    mode: '0644'
+    owner: root
+    group: bind
+    validate: 'named-checkconf %s'
   register: dns_forwarders_config
   notify:
-    - test bind configuration
     - restart dns services
     - verify dns service
   tags: [config, dns]
@@ -171,14 +151,14 @@
 
 - name: Display current Bind9 service state
   debug:
-    msg: "Bind9 service state: {{ ansible_facts.services['bind9.service'].state | default('not found') }}"
-  when: "'bind9.service' in ansible_facts.services"
+    msg: "Bind9 service state: {{ ansible_facts.services['named.service'].state | default('not found') }}"
+  when: "'named.service' in ansible_facts.services"
   tags: [debug, services]
 
 # Service management
 - name: Ensure Bind9 is started and enabled
   service:
-    name: bind9
+    name: named
     state: started
     enabled: yes
   register: bind9_service
@@ -256,7 +236,7 @@
       - "Environment: {{ env | upper }}"
       - "Domain: {{ dns_domain }}"
       - "Forwarders: {{ dns_forwarders | join(', ') }}"
-      - "Service Status: {{ ansible_facts.services['bind9.service'].state | default('unknown') }}"
+      - "Service Status: {{ ansible_facts.services['named.service'].state | default('unknown') }}"
       - "Config Updated: {{ dns_forwarders_config.changed }}"
       - "Packages Updated: {{ bind9_installed.changed | default(false) }}"
       - "Configuration Valid: {{ named_checkconf.rc == 0 }}"

@@ -1,0 +1,151 @@
+---
+# Common configuration tasks for all servers
+
+- name: Display common configuration information
+  debug:
+    msg:
+      - "========== Common Configuration =========="
+      - "Hostname: {{ inventory_hostname }}"
+      - "Environment: {{ env | upper }}"
+      - "DNS Domain: {{ dns_domain }}"
+      - "DNS Server: {{ dns_servers[env] }}"
+      - "=========================================="
+  tags: [debug, info]
+
+# Configure DNS resolution
+- name: Set DNS server for the environment
+  set_fact:
+    primary_dns: "{{ dns_servers[env] }}"
+  tags: [dns]
+
+- name: Display DNS configuration
+  debug:
+    msg:
+      - "Primary DNS: {{ primary_dns }}"
+      - "Fallback DNS: {{ fallback_dns_servers | join(', ') }}"
+      - "Search domains: {{ dns_search_domains | join(', ') }}"
+  tags: [debug, dns]
+
+# Configure systemd-resolved (modern Debian approach)
+- name: Check if systemd-resolved is available
+  stat:
+    path: /etc/systemd/resolved.conf
+  register: resolved_conf
+  tags: [dns]
+
+- name: Configure systemd-resolved
+  template:
+    src: resolved.conf.j2
+    dest: /etc/systemd/resolved.conf
+    mode: '0644'
+    owner: root
+    group: root
+  when: resolved_conf.stat.exists
+  notify: restart systemd-resolved
+  tags: [dns, config]
+
+# Configure /etc/resolv.conf (traditional approach)
+- name: Check if resolv.conf is immutable
+  command: lsattr /etc/resolv.conf
+  register: resolv_attr
+  changed_when: false
+  failed_when: false
+  tags: [dns]
+
+- name: Remove immutable attribute from resolv.conf if set
+  command: chattr -i /etc/resolv.conf
+  when: 
+    - resolv_attr.rc == 0
+    - "'i' in resolv_attr.stdout"
+  failed_when: false
+  tags: [dns]
+
+- name: Backup original resolv.conf
+  copy:
+    src: /etc/resolv.conf
+    dest: /etc/resolv.conf.backup
+    remote_src: yes
+    force: no
+  failed_when: false
+  tags: [dns, backup]
+
+- name: Configure /etc/resolv.conf using lineinfile for nameservers
+  blockinfile:
+    path: /etc/resolv.conf
+    block: |
+      # Managed by Ansible
+      # DNS configuration for {{ inventory_hostname }}.{{ dns_domain }}
+      # Environment: {{ env | upper }}
+      
+      # Primary DNS server for {{ env }} environment
+      nameserver {{ primary_dns }}
+      
+      # Fallback DNS servers
+      {% for dns in fallback_dns_servers %}
+      nameserver {{ dns }}
+      {% endfor %}
+      
+      # Search domains
+      search {{ dns_search_domains | join(' ') }}
+      
+      # Options
+      options timeout:2 attempts:3 rotate
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+    create: yes
+  failed_when: false
+  tags: [dns, config]
+
+# Test DNS resolution
+- name: Test DNS resolution
+  command: "dig @{{ primary_dns }} {{ dns_domain }}"
+  register: dns_resolution_test
+  changed_when: false
+  failed_when: false
+  tags: [dns, validation]
+
+- name: Display DNS test result
+  debug:
+    msg: "DNS resolution test {{ 'PASSED' if dns_resolution_test.rc == 0 else 'FAILED' }}"
+  tags: [debug, dns, validation]
+
+# Set hostname
+- name: Set system hostname
+  hostname:
+    name: "{{ inventory_hostname }}.{{ dns_domain }}"
+  tags: [hostname]
+
+- name: Check if /etc/hosts is immutable
+  command: lsattr /etc/hosts
+  register: hosts_attr
+  changed_when: false
+  failed_when: false
+  tags: [hostname]
+
+- name: Remove immutable attribute from /etc/hosts if set
+  command: chattr -i /etc/hosts
+  when: 
+    - hosts_attr.rc == 0
+    - "'i' in hosts_attr.stdout"
+  failed_when: false
+  tags: [hostname]
+
+- name: Update /etc/hosts with FQDN
+  lineinfile:
+    path: /etc/hosts
+    regexp: "^127\\.0\\.1\\.1"
+    line: "127.0.1.1 {{ inventory_hostname }}.{{ dns_domain }} {{ inventory_hostname }}"
+    state: present
+  failed_when: false
+  tags: [hostname]
+
+# Summary
+- name: Display common configuration summary
+  debug:
+    msg:
+      - "========== Configuration Summary =========="
+      - "FQDN: {{ inventory_hostname }}.{{ dns_domain }}"
+      - "Environment: {{ env | upper }}"
+      - "Primary DNS: {{ primary_dns }}"
+      - "DNS Test: {{ 'PASSED' if dns_resolution_test.rc == 0 else 'FAILED' }}"
+      - "=========================================="
+  tags: [summary]
