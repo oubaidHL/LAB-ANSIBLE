@@ -84,32 +84,32 @@ docker-compose up -d
 ```
 
 ### 2. Deploy SSH Keys
-Run this from your **host machine** (not inside any container):
+SSH into the master container and run the key deployment script:
 ```bash
-# On Windows PowerShell
-bash ansible/push_key.sh
+# SSH to master from Windows
+ssh -p 2222 ansible@localhost
+# Password: ansible
 
-# Or if bash is not available on Windows
-docker exec master bash /ansible/push_key.sh
+# Once inside master, deploy keys
+cd /ansible
+./push_key.sh
 ```
 
 This script will:
-- Generate SSH keys on the master node
-- Copy the public key to all target nodes
-- Enable passwordless SSH authentication
+- Generate SSH keys on the master node (if not exists)
+- Copy the public key to all 11 target nodes using their IP addresses
+- Enable passwordless SSH authentication for Ansible
 
-### 3. Enter Master Container
+### 3. Test Connectivity
 ```bash
-docker exec -it master bash
-cd /ansible
-```
-
-### 4. Test Connectivity
-```bash
+# Test Ansible connectivity
 ansible all -m ping
+
+# Test with IP addresses
+ansible all -m shell -a "ip addr show"
 ```
 
-### 5. Deploy Services
+### 4. Deploy Services
 
 #### Using Helper Script (Recommended)
 ```bash
@@ -136,6 +136,15 @@ ansible-playbook playbooks/web.yml --limit test
 ansible-playbook playbooks/site.yml --tags packages
 ansible-playbook playbooks/site.yml --skip-tags ssl
 ```
+
+## 🌐 Network Configuration
+
+All containers have static IP addresses for reliable connectivity:
+
+- **Master**: 172.20.0.10 (SSH: localhost:2222 from Windows)
+- **Node1-11**: 172.20.0.11 - 172.20.0.21
+
+See [IP-MAPPING.md](IP-MAPPING.md) for complete network documentation.
 
 ## 🔍 Verification & Testing
 
@@ -396,6 +405,7 @@ lab-ansible/
 ## 📖 Documentation
 
 - **[README.md](README.md)** - This file, quick start guide
+- **[IP-MAPPING.md](IP-MAPPING.md)** - Network configuration and IP addresses
 - **[PROJECT_STRUCTURE.md](ansible/PROJECT_STRUCTURE.md)** - Detailed project organization
 - **[inventories/README.md](ansible/inventories/README.md)** - Inventory and variables guide
 - **[playbooks/README.md](ansible/playbooks/README.md)** - Playbooks and roles documentation

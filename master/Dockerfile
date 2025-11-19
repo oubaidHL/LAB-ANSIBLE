@@ -21,7 +21,8 @@ RUN useradd -m -s /bin/bash ansible && \
 
 # Create ansible directory as root before switching user
 RUN mkdir -p /ansible && \
-    chown ansible:ansible /ansible
+    chown ansible:ansible /ansible && \
+    chmod 755 /ansible
 
 # Configure SSH
 RUN mkdir /var/run/sshd && \

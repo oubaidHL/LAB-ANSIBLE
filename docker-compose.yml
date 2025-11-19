@@ -4,79 +4,107 @@ services:
   master:
     build: ./master
     container_name: master
+    hostname: master
     ports:
       - "2222:22"
     volumes:
       - ./ansible:/ansible
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.10
 
 
   node1:
     build: ./node
     container_name: node1
+    hostname: node1
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.11
 
   node2:
     build: ./node
     container_name: node2
+    hostname: node2
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.12
 
   node3:
     build: ./node
     container_name: node3
+    hostname: node3
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.13
 
   node4:
     build: ./node
     container_name: node4
+    hostname: node4
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.14
 
   node5:
     build: ./node
     container_name: node5
+    hostname: node5
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.15
 
   node6:
     build: ./node
     container_name: node6
+    hostname: node6
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.16
 
   node7:
     build: ./node
     container_name: node7
+    hostname: node7
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.17
 
   node8:
     build: ./node
     container_name: node8
+    hostname: node8
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.18
 
   node9:
     build: ./node
     container_name: node9
+    hostname: node9
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.19
 
   node10:
     build: ./node
     container_name: node10
+    hostname: node10
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.20
 
   node11:
     build: ./node
     container_name: node11
+    hostname: node11
     networks:
-      - ansible_net
+      ansible_net:
+        ipv4_address: 172.20.0.21
 
 networks:
   ansible_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
