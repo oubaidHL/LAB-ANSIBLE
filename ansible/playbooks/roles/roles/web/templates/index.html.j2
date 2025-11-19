@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ inventory_hostname }} - {{ env | upper }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 50px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { color: #fff; margin-top: 0; }
+        h2 { color: #f0f0f0; border-bottom: 2px solid #fff; padding-bottom: 10px; }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .info-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .label { font-weight: bold; color: #ffeb3b; }
+        .value { margin-top: 5px; }
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #4caf50;
+            border-radius: 20px;
+            font-size: 14px;
+            margin: 5px;
+        }
+        .badge.prod { background: #f44336; }
+        .badge.test { background: #ff9800; }
+        .badge.dev { background: #2196f3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 {{ inventory_hostname }}.{{ dns_domain }}</h1>
+        <span class="badge {{ env }}">{{ env | upper }} Environment</span>
+        
+        <h2>System Information</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="label">Operating System</div>
+                <div class="value">{{ ansible_distribution }} {{ ansible_distribution_version }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Kernel Version</div>
+                <div class="value">{{ ansible_kernel }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Architecture</div>
+                <div class="value">{{ ansible_architecture }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Processor Cores</div>
+                <div class="value">{{ ansible_processor_vcpus }} vCPUs</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Total Memory</div>
+                <div class="value">{{ ansible_memtotal_mb }} MB</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Python Version</div>
+                <div class="value">{{ ansible_python_version }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">IPv4 Address</div>
+                <div class="value">{{ ansible_default_ipv4.address | default('N/A') }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">FQDN</div>
+                <div class="value">{{ ansible_fqdn }}</div>
+            </div>
+        </div>
+
+        <h2>Web Server Configuration</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="label">HTTP Port</div>
+                <div class="value">{{ nginx_http_port }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">HTTPS Port</div>
+                <div class="value">{{ nginx_https_port }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Document Root</div>
+                <div class="value">{{ nginx_document_root }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Administrator</div>
+                <div class="value">{{ nginx_server_admin }}</div>
+            </div>
+        </div>
+
+        <h2>Deployment Information</h2>
+        <div class="info-item">
+            <div class="label">Managed By</div>
+            <div class="value">Ansible Automation Platform</div>
+        </div>
+        <div class="info-item" style="margin-top: 15px;">
+            <div class="label">Generated On</div>
+            <div class="value">{{ ansible_date_time.date }} at {{ ansible_date_time.time }}</div>
+        </div>
+        <div class="info-item" style="margin-top: 15px;">
+            <div class="label">Playbook Directory</div>
+            <div class="value">{{ playbook_dir }}</div>
+        </div>
+
+        <p style="text-align: center; margin-top: 30px; opacity: 0.8;">
+            ✨ Configured by Ansible Lab - Learning Environment ✨
+        </p>
+    </div>
+</body>
+</html>

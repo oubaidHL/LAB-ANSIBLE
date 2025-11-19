@@ -1,0 +1,14 @@
+---
+# Production environment variables
+env: prod
+dns_domain: prod.local
+nagios_server: nagios.prod.local
+
+# Environment-specific settings
+deployment_mode: production
+debug_enabled: false
+log_level: warn
+
+# Resource limits (prod uses full resources)
+nginx_worker_processes: 4
+nginx_worker_connections: 1024

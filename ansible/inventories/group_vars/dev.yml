@@ -1,0 +1,14 @@
+---
+# Development environment variables
+env: dev
+dns_domain: dev.local
+nagios_server: nagios.dev.local
+
+# Environment-specific settings
+deployment_mode: development
+debug_enabled: true
+log_level: debug
+
+# Resource limits (dev uses less resources)
+nginx_worker_processes: 2
+nginx_worker_connections: 512

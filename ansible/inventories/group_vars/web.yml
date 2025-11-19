@@ -1,0 +1,18 @@
+---
+# Web servers group variables
+# These apply to all web servers across all environments
+
+# Service ports
+http_port: 80
+https_port: 443
+
+# Web server software
+web_server_type: nginx
+
+# Default web content
+default_page_title: "Ansible Lab Web Server"
+default_page_bg_color: "#667eea"
+
+# Monitoring
+enable_web_monitoring: true
+health_check_endpoint: /health

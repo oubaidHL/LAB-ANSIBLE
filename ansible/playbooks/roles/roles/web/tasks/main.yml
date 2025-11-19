@@ -1,0 +1,316 @@
+---
+# Display system information for learning
+- name: Display Ansible Facts
+  debug:
+    msg:
+      - "========== System Information =========="
+      - "Hostname: {{ inventory_hostname }}"
+      - "FQDN: {{ ansible_fqdn }}"
+      - "OS Family: {{ ansible_os_family }}"
+      - "Distribution: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+      - "Kernel: {{ ansible_kernel }}"
+      - "Architecture: {{ ansible_architecture }}"
+      - "Python Version: {{ ansible_python_version }}"
+      - "Total Memory: {{ ansible_memtotal_mb }} MB"
+      - "Processor Cores: {{ ansible_processor_vcpus }}"
+      - "Environment: {{ env }}"
+      - "Playbook Directory: {{ playbook_dir }}"
+      - "User: {{ ansible_user_id }}"
+      - "========================================="
+  tags: [debug, info]
+
+# Check OS compatibility
+- name: Verify OS is Debian-based
+  assert:
+    that:
+      - ansible_os_family == "Debian"
+    fail_msg: "This playbook only supports Debian-based systems"
+    success_msg: "OS compatibility verified: {{ ansible_distribution }}"
+  tags: [validation]
+
+- name: Check if system has enough memory
+  assert:
+    that:
+      - ansible_memtotal_mb >= 512
+    fail_msg: "System requires at least 512MB of RAM"
+    success_msg: "Memory check passed: {{ ansible_memtotal_mb }}MB available"
+  tags: [validation]
+
+# Package management with conditionals
+- name: Update apt cache (Debian/Ubuntu)
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  register: apt_update_result
+  changed_when: apt_update_result.cache_updated
+  tags: [packages]
+
+- name: Display apt cache update result
+  debug:
+    msg: "APT cache was {{ 'updated' if apt_update_result.changed else 'already current' }}"
+  when: apt_update_result is defined
+  tags: [debug, packages]
+
+- name: Check if Nginx is already installed
+  command: which nginx
+  register: nginx_check
+  changed_when: false
+  failed_when: false
+  tags: [packages]
+
+- name: Display Nginx installation status
+  debug:
+    msg: "Nginx is {{ 'already installed' if nginx_check.rc == 0 else 'not installed, will install' }}"
+  tags: [debug, packages]
+
+- name: Install web server packages
+  apt:
+    name:
+      - nginx
+      - openssl
+      - curl
+      - net-tools
+    state: present
+  when: ansible_os_family == "Debian"
+  register: packages_installed
+  notify:
+    - restart web services
+    - reload nginx
+  tags: [packages]
+
+- name: Display package installation result
+  debug:
+    msg: "Packages were {{ 'installed/updated' if packages_installed.changed else 'already present' }}"
+  when: packages_installed is defined
+  tags: [debug, packages]
+
+# Gather service facts
+- name: Gather service facts
+  service_facts:
+  tags: [services]
+
+- name: Display Nginx service status
+  debug:
+    msg: "Nginx service is {{ ansible_facts.services['nginx.service'].state | default('not found') }}"
+  when: "'nginx.service' in ansible_facts.services"
+  tags: [debug, services]
+
+# SSL Configuration with conditionals
+- name: Create SSL directory
+  file:
+    path: /etc/nginx/ssl
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  register: ssl_dir_created
+  tags: [ssl, security]
+
+- name: Check if SSL certificate exists
+  stat:
+    path: /etc/nginx/ssl/{{ inventory_hostname }}.crt
+  register: ssl_cert_stat
+  tags: [ssl, security]
+
+- name: Display SSL certificate status
+  debug:
+    msg: "SSL certificate {{ 'exists' if ssl_cert_stat.stat.exists else 'needs to be generated' }}"
+  tags: [debug, ssl]
+
+- name: Generate self-signed SSL certificate
+  command: |
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/{{ inventory_hostname }}.key \
+    -out /etc/nginx/ssl/{{ inventory_hostname }}.crt \
+    -subj "/C=FR/ST=IDF/L=Paris/O=ITIC/OU=IT-{{ env | upper }}/CN={{ inventory_hostname }}.{{ dns_domain }}"
+  args:
+    creates: /etc/nginx/ssl/{{ inventory_hostname }}.crt
+  when: not ssl_cert_stat.stat.exists
+  register: ssl_generated
+  notify:
+    - reload nginx
+    - restart web services
+  tags: [ssl, security]
+
+- name: Display SSL generation result
+  debug:
+    msg: "SSL certificate was {{ 'newly generated' if ssl_generated.changed else 'already present' }}"
+  when: ssl_generated is defined
+  tags: [debug, ssl]
+
+- name: Set permissions on SSL key
+  file:
+    path: /etc/nginx/ssl/{{ inventory_hostname }}.key
+    mode: '0600'
+    owner: root
+    group: root
+  tags: [ssl, security]
+
+- name: Verify SSL certificate
+  command: openssl x509 -in /etc/nginx/ssl/{{ inventory_hostname }}.crt -noout -subject
+  register: ssl_verify
+  changed_when: false
+  tags: [ssl, verification]
+
+- name: Display SSL certificate info
+  debug:
+    msg: "SSL Certificate Subject: {{ ssl_verify.stdout }}"
+  when: ssl_verify is defined
+  tags: [debug, ssl]
+
+# Web content configuration
+- name: Create web root directory
+  file:
+    path: "{{ nginx_document_root }}"
+    state: directory
+    mode: '0755'
+    owner: www-data
+    group: www-data
+  register: web_root_created
+  tags: [config]
+
+- name: Check if custom index page exists
+  stat:
+    path: "{{ nginx_document_root }}/index.html"
+  register: index_stat
+  tags: [config]
+
+- name: Deploy index page from template
+  template:
+    src: index.html.j2
+    dest: "{{ nginx_document_root }}/index.html"
+    mode: '0644'
+    owner: www-data
+    group: www-data
+  register: index_deployed
+  tags: [config]
+
+- name: Display index page deployment result
+  debug:
+    msg: "Index page was {{ 'updated' if index_deployed.changed else 'unchanged' }}"
+  tags: [debug, config]
+
+# Nginx configuration
+- name: Test Nginx configuration syntax
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+  failed_when: false
+  tags: [config, validation]
+
+- name: Display Nginx test result
+  debug:
+    msg: "Nginx config test: {{ 'PASSED' if nginx_test.rc == 0 else 'FAILED' }}"
+  tags: [debug, config]
+
+- name: Configure Nginx site with SSL
+  template:
+    src: nginx-site.conf.j2
+    dest: /etc/nginx/sites-available/{{ inventory_hostname }}
+    mode: '0644'
+    owner: root
+    group: root
+    validate: 'nginx -t -c /etc/nginx/nginx.conf'
+  register: nginx_config_changed
+  notify:
+    - test nginx configuration
+    - reload nginx
+    - restart web services
+  tags: [config, nginx]
+
+- name: Display Nginx configuration status
+  debug:
+    msg: "Nginx site configuration was {{ 'modified' if nginx_config_changed.changed else 'unchanged' }}"
+  tags: [debug, config]
+
+- name: Check if site is already enabled
+  stat:
+    path: /etc/nginx/sites-enabled/{{ inventory_hostname }}
+  register: site_enabled_stat
+  tags: [config]
+
+- name: Enable Nginx site
+  file:
+    src: /etc/nginx/sites-available/{{ inventory_hostname }}
+    dest: /etc/nginx/sites-enabled/{{ inventory_hostname }}
+    state: link
+  when: not site_enabled_stat.stat.exists or not site_enabled_stat.stat.islnk
+  register: site_enabled
+  notify:
+    - reload nginx
+  tags: [config]
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  register: default_removed
+  notify:
+    - reload nginx
+  tags: [config]
+
+# Service management with conditionals
+- name: Ensure Nginx is started and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+  when: ansible_os_family == "Debian"
+  register: nginx_service
+  tags: [services]
+
+- name: Wait for Nginx to be ready
+  wait_for:
+    port: "{{ nginx_https_port }}"
+    delay: 2
+    timeout: 30
+    state: started
+  when: nginx_service is changed
+  tags: [services, validation]
+
+- name: Get Nginx service status
+  service_facts:
+  tags: [services]
+
+- name: Display final Nginx service status
+  debug:
+    msg:
+      - "Nginx Status: {{ ansible_facts.services['nginx.service'].state }}"
+      - "Nginx Enabled: {{ ansible_facts.services['nginx.service'].status }}"
+  when: "'nginx.service' in ansible_facts.services"
+  tags: [debug, services]
+
+# Health checks
+- name: Perform HTTP health check
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:{{ nginx_http_port }}"
+    follow_redirects: none
+    status_code: [301, 302]
+  register: http_check
+  failed_when: false
+  when: ansible_default_ipv4.address is defined
+  tags: [validation, health]
+
+- name: Display HTTP health check result
+  debug:
+    msg: "HTTP redirect check: {{ 'SUCCESS' if http_check.status in [301, 302] else 'FAILED' }}"
+  when: http_check is defined
+  tags: [debug, health]
+
+# Final summary
+- name: Display deployment summary
+  debug:
+    msg:
+      - "========== Deployment Summary =========="
+      - "Server: {{ inventory_hostname }}.{{ dns_domain }}"
+      - "Environment: {{ env | upper }}"
+      - "HTTP Port: {{ nginx_http_port }}"
+      - "HTTPS Port: {{ nginx_https_port }}"
+      - "Document Root: {{ nginx_document_root }}"
+      - "SSL Enabled: {{ ssl_cert_stat.stat.exists or ssl_generated.changed | default(false) }}"
+      - "Packages Changed: {{ packages_installed.changed | default(false) }}"
+      - "Config Changed: {{ nginx_config_changed.changed | default(false) }}"
+      - "Service Active: {{ ansible_facts.services['nginx.service'].state | default('unknown') }}"
+      - "========================================"
+  tags: [summary]

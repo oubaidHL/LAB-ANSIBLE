@@ -1,0 +1,14 @@
+---
+# Test environment variables
+env: test
+dns_domain: test.local
+nagios_server: nagios.test.local
+
+# Environment-specific settings
+deployment_mode: testing
+debug_enabled: true
+log_level: info
+
+# Resource limits (test uses moderate resources)
+nginx_worker_processes: 2
+nginx_worker_connections: 768

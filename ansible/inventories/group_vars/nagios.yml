@@ -1,0 +1,16 @@
+---
+# Nagios monitoring servers group variables
+# These apply to all Nagios servers across all environments
+
+# Monitoring settings
+monitoring_interval: 5
+notification_enabled: true
+alert_email: admin@example.com
+
+# Nagios web interface
+nagios_web_port: 443
+nagios_web_path: /nagios4
+
+# Monitoring checks
+default_check_timeout: 30
+max_check_attempts: 3

@@ -1,0 +1,26 @@
+---
+# Web server configuration variables
+nginx_http_port: 80
+nginx_https_port: 443
+nginx_document_root: /var/www/html
+nginx_server_admin: admin@{{ dns_domain }}
+nginx_worker_processes: "{{ ansible_processor_vcpus | default(2) }}"
+nginx_worker_connections: 1024
+nginx_keepalive_timeout: 65
+nginx_max_body_size: 20M
+
+# SSL Configuration
+ssl_protocols: "TLSv1.2 TLSv1.3"
+ssl_ciphers: "HIGH:!aNULL:!MD5"
+ssl_session_cache: "shared:SSL:10m"
+ssl_session_timeout: "10m"
+
+# Security settings
+enable_security_headers: true
+enable_rate_limiting: false
+rate_limit: "10r/s"
+
+# Logging
+nginx_access_log: "/var/log/nginx/{{ inventory_hostname }}_access.log"
+nginx_error_log: "/var/log/nginx/{{ inventory_hostname }}_error.log"
+log_level: "warn"

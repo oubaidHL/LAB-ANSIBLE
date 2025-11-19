@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+  master:
+    build: ./master
+    container_name: master
+    volumes:
+      - ./ansible:/ansible
+    networks:
+      - ansible_net
+    command: >
+      bash -c "
+      if [ ! -f /ansible/id_rsa ]; then
+        ssh-keygen -q -t rsa -N '' -f /ansible/id_rsa;
+      fi;
+      tail -f /dev/null
+      "
+
+  node1:
+    build: ./node
+    container_name: node1
+    networks:
+      - ansible_net
+
+  node2:
+    build: ./node
+    container_name: node2
+    networks:
+      - ansible_net
+
+  node3:
+    build: ./node
+    container_name: node3
+    networks:
+      - ansible_net
+
+  node4:
+    build: ./node
+    container_name: node4
+    networks:
+      - ansible_net
+
+  node5:
+    build: ./node
+    container_name: node5
+    networks:
+      - ansible_net
+
+  node6:
+    build: ./node
+    container_name: node6
+    networks:
+      - ansible_net
+
+  node7:
+    build: ./node
+    container_name: node7
+    networks:
+      - ansible_net
+
+  node8:
+    build: ./node
+    container_name: node8
+    networks:
+      - ansible_net
+
+  node9:
+    build: ./node
+    container_name: node9
+    networks:
+      - ansible_net
+
+  node10:
+    build: ./node
+    container_name: node10
+    networks:
+      - ansible_net
+
+  node11:
+    build: ./node
+    container_name: node11
+    networks:
+      - ansible_net
+
+networks:
+  ansible_net:

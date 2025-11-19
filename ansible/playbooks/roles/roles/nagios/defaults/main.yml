@@ -1,0 +1,26 @@
+---
+# Nagios monitoring configuration
+nagios_admin_email: admin@{{ dns_domain }}
+nagios_check_interval: 5
+nagios_retry_interval: 1
+nagios_max_check_attempts: 3
+
+# Notification settings
+nagios_notification_enabled: true
+nagios_notification_interval: 30
+
+# Performance settings
+nagios_max_concurrent_checks: 20
+nagios_service_inter_check_delay_method: "s"
+
+# Web interface settings
+nagios_web_port: 443
+nagios_web_path: "/nagios4"
+
+# Logging
+nagios_log_rotation_method: "d"
+nagios_log_archive_path: "/var/log/nagios4/archives"
+
+# Contact information
+nagios_contact_name: "Nagios Admin"
+nagios_contact_alias: "System Administrator"

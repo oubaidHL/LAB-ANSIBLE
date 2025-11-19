@@ -1,0 +1,5 @@
+---
+- hosts: "*_nagios"
+  become: yes
+  roles:
+    - nagios

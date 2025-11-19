@@ -1,0 +1,264 @@
+---
+# Display DNS configuration information
+- name: Display DNS server setup information
+  debug:
+    msg:
+      - "========== DNS Server Configuration =========="
+      - "Hostname: {{ inventory_hostname }}"
+      - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+      - "Environment: {{ env | upper }}"
+      - "Domain: {{ dns_domain }}"
+      - "Forwarders: {{ dns_forwarders | join(', ') }}"
+      - "=============================================="
+  tags: [debug, info]
+
+# Pre-flight checks
+- name: Verify DNS forwarders are defined
+  assert:
+    that:
+      - dns_forwarders is defined
+      - dns_forwarders | length > 0
+    fail_msg: "DNS forwarders must be defined"
+    success_msg: "DNS forwarders configured: {{ dns_forwarders | length }} forwarders"
+  tags: [validation]
+
+- name: Check if system is Debian-based
+  assert:
+    that:
+      - ansible_os_family == "Debian"
+    fail_msg: "This role only supports Debian-based systems"
+    success_msg: "OS compatibility verified"
+  tags: [validation]
+
+# Package management
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  register: apt_cache_update
+  when: ansible_os_family == "Debian"
+  tags: [packages]
+
+- name: Display apt update result
+  debug:
+    msg: "APT cache {{ 'was updated' if apt_cache_update.changed else 'is current' }}"
+  tags: [debug, packages]
+
+- name: Check if Bind9 is already installed
+  command: which named
+  register: bind9_check
+  changed_when: false
+  failed_when: false
+  tags: [packages]
+
+- name: Display Bind9 installation status
+  debug:
+    msg: "Bind9 is {{ 'already installed' if bind9_check.rc == 0 else 'not installed, will install now' }}"
+  tags: [debug, packages]
+
+- name: Install Bind9 and utilities
+  apt:
+    name:
+      - bind9
+      - bind9utils
+      - bind9-doc
+      - dnsutils
+    state: present
+  register: bind9_installed
+  when: ansible_os_family == "Debian"
+  notify:
+    - restart dns services
+    - verify dns service
+  tags: [packages]
+
+- name: Display package installation result
+  debug:
+    msg: "Bind9 packages {{ 'were installed/updated' if bind9_installed.changed else 'were already present' }}"
+  when: bind9_installed is defined
+  tags: [debug, packages]
+
+# Configuration backup
+- name: Check if original config exists
+  stat:
+    path: /etc/bind/named.conf.options
+  register: named_conf_stat
+  tags: [config, backup]
+
+- name: Backup original Bind9 configuration
+  copy:
+    src: /etc/bind/named.conf.options
+    dest: /etc/bind/named.conf.options.backup-{{ ansible_date_time.epoch }}
+    remote_src: yes
+  when: 
+    - named_conf_stat.stat.exists
+    - not ansible_check_mode
+  register: config_backup
+  tags: [config, backup]
+
+- name: Display backup status
+  debug:
+    msg: "Configuration {{ 'backed up' if config_backup.changed else 'backup skipped' }}"
+  when: config_backup is defined
+  tags: [debug, backup]
+
+# DNS configuration
+- name: Configure DNS forwarders and ACLs
+  blockinfile:
+    path: /etc/bind/named.conf.options
+    block: |
+      // Configured by Ansible for {{ env }} environment
+      // Generated on {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+      
+      forwarders {
+        {% for forwarder in dns_forwarders %}
+        {{ forwarder }};  // Forwarder {{ loop.index }}
+        {% endfor %}
+      };
+      
+      // Query ACL
+      allow-query { {{ dns_allow_query }}; };
+      
+      // Recursion settings
+      recursion yes;
+      allow-recursion { {{ dns_allow_query }}; };
+      
+      // DNSSEC validation
+      dnssec-validation auto;
+      
+      // Listen on all interfaces
+      listen-on { any; };
+      listen-on-v6 { any; };
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - {{ env | upper }}"
+  register: dns_forwarders_config
+  notify:
+    - test bind configuration
+    - restart dns services
+    - verify dns service
+  tags: [config, dns]
+
+- name: Display forwarders configuration result
+  debug:
+    msg: "DNS forwarders configuration {{ 'was updated' if dns_forwarders_config.changed else 'unchanged' }}"
+  tags: [debug, config]
+
+# Domain configuration
+- name: Create domain configuration file
+  copy:
+    dest: /etc/bind/domain.conf
+    content: |
+      # Domain configuration for {{ env }} environment
+      # Managed by Ansible
+      # Last updated: {{ ansible_date_time.iso8601 }}
+      
+      domain {{ dns_domain }}
+      type authoritative
+      environment={{ env }}
+      hostname={{ inventory_hostname }}
+      os={{ ansible_distribution }}
+      kernel={{ ansible_kernel }}
+    mode: '0644'
+    owner: root
+    group: bind
+  register: domain_config
+  notify:
+    - restart dns services
+  tags: [config, dns]
+
+# Service facts gathering
+- name: Gather service facts
+  service_facts:
+  tags: [services]
+
+- name: Display current Bind9 service state
+  debug:
+    msg: "Bind9 service state: {{ ansible_facts.services['bind9.service'].state | default('not found') }}"
+  when: "'bind9.service' in ansible_facts.services"
+  tags: [debug, services]
+
+# Service management
+- name: Ensure Bind9 is started and enabled
+  service:
+    name: bind9
+    state: started
+    enabled: yes
+  register: bind9_service
+  when: ansible_os_family == "Debian"
+  tags: [services]
+
+- name: Display service start result
+  debug:
+    msg: "Bind9 service {{ 'was started' if bind9_service.changed else 'is already running' }}"
+  when: bind9_service is defined
+  tags: [debug, services]
+
+# Wait for service to be ready
+- name: Wait for DNS service to be ready
+  wait_for:
+    port: 53
+    delay: 2
+    timeout: 30
+    state: started
+  when: bind9_service.changed
+  tags: [services, validation]
+
+# Configuration validation
+- name: Test DNS resolution locally
+  command: dig @localhost {{ dns_domain }}
+  register: dns_test
+  changed_when: false
+  failed_when: false
+  tags: [validation, dns]
+
+- name: Display DNS test result
+  debug:
+    msg: "DNS resolution test {{ 'PASSED' if dns_test.rc == 0 else 'FAILED' }}"
+  tags: [debug, validation]
+
+- name: Check Bind9 configuration syntax
+  command: named-checkconf
+  register: named_checkconf
+  changed_when: false
+  failed_when: named_checkconf.rc != 0
+  tags: [validation]
+
+- name: Display configuration syntax check
+  debug:
+    msg: "Bind9 configuration syntax: {{ 'VALID' if named_checkconf.rc == 0 else 'INVALID' }}"
+  tags: [debug, validation]
+
+# Statistics and monitoring
+- name: Check DNS query statistics
+  command: rndc stats
+  register: dns_stats
+  changed_when: false
+  failed_when: false
+  tags: [monitoring]
+
+- name: Get DNS server status
+  command: rndc status
+  register: dns_status
+  changed_when: false
+  failed_when: false
+  tags: [monitoring]
+
+- name: Display DNS server status
+  debug:
+    var: dns_status.stdout_lines
+  when: dns_status.rc == 0
+  tags: [debug, monitoring]
+
+# Final summary
+- name: Display DNS deployment summary
+  debug:
+    msg:
+      - "========== DNS Deployment Summary =========="
+      - "Server: {{ inventory_hostname }}.{{ dns_domain }}"
+      - "Environment: {{ env | upper }}"
+      - "Domain: {{ dns_domain }}"
+      - "Forwarders: {{ dns_forwarders | join(', ') }}"
+      - "Service Status: {{ ansible_facts.services['bind9.service'].state | default('unknown') }}"
+      - "Config Updated: {{ dns_forwarders_config.changed }}"
+      - "Packages Updated: {{ bind9_installed.changed | default(false) }}"
+      - "Configuration Valid: {{ named_checkconf.rc == 0 }}"
+      - "============================================"
+  tags: [summary]

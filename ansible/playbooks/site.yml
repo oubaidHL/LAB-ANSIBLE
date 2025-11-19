@@ -1,0 +1,9 @@
+---
+- name: Full infrastructure deployment
+  hosts: all
+  become: yes
+
+  roles:
+    - { role: web,    when: "'web' in group_names" }
+    - { role: dns,    when: "'dns' in group_names" }
+    - { role: nagios, when: "'nagios' in group_names" }

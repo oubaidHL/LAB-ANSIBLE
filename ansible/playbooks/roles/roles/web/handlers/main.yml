@@ -1,0 +1,35 @@
+---
+# Handler with listen directive for grouping
+- name: restart nginx
+  service:
+    name: nginx
+    state: restarted
+  listen: restart web services
+
+- name: reload nginx
+  service:
+    name: nginx
+    state: reloaded
+  listen: restart web services
+
+- name: test nginx configuration
+  command: nginx -t
+  changed_when: false
+  listen: restart web services
+
+# Standalone handlers
+- name: verify nginx is running
+  wait_for:
+    port: 443
+    delay: 1
+    timeout: 10
+
+- name: clear nginx cache
+  file:
+    path: /var/cache/nginx
+    state: absent
+  when: ansible_os_family == "Debian"
+
+- name: display restart notification
+  debug:
+    msg: "Nginx service has been restarted on {{ inventory_hostname }}"

@@ -1,0 +1,16 @@
+---
+# DNS servers group variables
+# These apply to all DNS servers across all environments
+
+# DNS service settings
+dns_service: bind9
+dns_port: 53
+
+# Additional DNS forwarders (can be overridden per environment)
+dns_secondary_forwarders:
+  - 1.0.0.1
+  - 9.9.9.9
+
+# DNS security
+dnssec_enabled: true
+dns_rate_limiting: true

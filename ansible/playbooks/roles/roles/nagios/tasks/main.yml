@@ -1,0 +1,360 @@
+---
+# Display monitoring server information
+- name: Display Nagios server setup information
+  debug:
+    msg:
+      - "========== Nagios Monitoring Setup =========="
+      - "Hostname: {{ inventory_hostname }}"
+      - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+      - "Architecture: {{ ansible_architecture }}"
+      - "Environment: {{ env | upper }}"
+      - "Memory: {{ ansible_memtotal_mb }} MB"
+      - "CPUs: {{ ansible_processor_vcpus }}"
+      - "=============================================="
+  tags: [debug, info]
+
+# Pre-flight checks
+- name: Verify system requirements
+  assert:
+    that:
+      - ansible_memtotal_mb >= 1024
+      - ansible_processor_vcpus >= 1
+    fail_msg: "System does not meet minimum requirements (1GB RAM, 1 CPU)"
+    success_msg: "System requirements verified"
+  tags: [validation]
+
+- name: Check OS compatibility
+  assert:
+    that:
+      - ansible_os_family == "Debian"
+    fail_msg: "This role only supports Debian-based systems"
+    success_msg: "OS compatibility verified"
+  tags: [validation]
+
+# Package management
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  register: apt_update
+  when: ansible_os_family == "Debian"
+  tags: [packages]
+
+- name: Check if Nagios is already installed
+  command: which nagios4
+  register: nagios_check
+  changed_when: false
+  failed_when: false
+  tags: [packages]
+
+- name: Display Nagios installation status
+  debug:
+    msg: "Nagios is {{ 'already installed' if nagios_check.rc == 0 else 'not installed, installing now' }}"
+  tags: [debug, packages]
+
+- name: Install Nagios, plugins, and dependencies
+  apt:
+    name:
+      - nagios4
+      - nagios-plugins
+      - nagios-nrpe-plugin
+      - nginx
+      - openssl
+      - fcgiwrap
+      - apache2-utils
+    state: present
+  register: nagios_packages
+  when: ansible_os_family == "Debian"
+  notify:
+    - restart monitoring services
+  tags: [packages]
+
+- name: Display package installation result
+  debug:
+    msg: "Nagios packages {{ 'were installed/updated' if nagios_packages.changed else 'already present' }}"
+  when: nagios_packages is defined
+  tags: [debug, packages]
+
+# SSL Configuration
+- name: Create SSL directory for Nagios
+  file:
+    path: /etc/nginx/ssl
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  register: ssl_dir
+  tags: [ssl, security]
+
+- name: Check if Nagios SSL certificate exists
+  stat:
+    path: /etc/nginx/ssl/nagios.crt
+  register: nagios_ssl_stat
+  tags: [ssl, security]
+
+- name: Display SSL certificate status
+  debug:
+    msg: "Nagios SSL certificate {{ 'exists' if nagios_ssl_stat.stat.exists else 'will be generated' }}"
+  tags: [debug, ssl]
+
+- name: Generate self-signed SSL certificate for Nagios
+  command: |
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/nagios.key \
+    -out /etc/nginx/ssl/nagios.crt \
+    -subj "/C=FR/ST=IDF/L=Paris/O=ITIC/OU=Monitoring-{{ env | upper }}/CN={{ nagios_server }}"
+  args:
+    creates: /etc/nginx/ssl/nagios.crt
+  register: ssl_generated
+  when: not nagios_ssl_stat.stat.exists
+  notify:
+    - restart monitoring services
+  tags: [ssl, security]
+
+- name: Set permissions on SSL key
+  file:
+    path: /etc/nginx/ssl/nagios.key
+    mode: '0600'
+    owner: root
+    group: root
+  tags: [ssl, security]
+
+- name: Verify SSL certificate
+  command: openssl x509 -in /etc/nginx/ssl/nagios.crt -noout -subject -dates
+  register: ssl_info
+  changed_when: false
+  tags: [ssl, validation]
+
+- name: Display SSL certificate information
+  debug:
+    var: ssl_info.stdout_lines
+  when: ssl_info is defined
+  tags: [debug, ssl]
+
+# Nagios user configuration
+- name: Check if Nagios htpasswd file exists
+  stat:
+    path: /etc/nagios4/htpasswd.users
+  register: htpasswd_stat
+  tags: [config, security]
+
+- name: Create Nagios admin user (nagiosadmin/nagiosadmin)
+  shell: |
+    if [ ! -f /etc/nagios4/htpasswd.users ]; then
+      echo "nagiosadmin:$(openssl passwd -apr1 nagiosadmin)" > /etc/nagios4/htpasswd.users
+      chmod 644 /etc/nagios4/htpasswd.users
+      echo "created"
+    else
+      echo "exists"
+    fi
+  args:
+    creates: /etc/nagios4/htpasswd.users
+  register: htpasswd_created
+  changed_when: "'created' in htpasswd_created.stdout"
+  tags: [config, security]
+
+- name: Display htpasswd creation status
+  debug:
+    msg: "Nagios admin user {{ 'was created' if htpasswd_created.changed else 'already exists' }}"
+  tags: [debug, security]
+
+# Nagios configuration
+- name: Backup original Nagios configuration
+  copy:
+    src: /etc/nagios4/nagios.cfg
+    dest: /etc/nagios4/nagios.cfg.backup-{{ ansible_date_time.epoch }}
+    remote_src: yes
+  when: not ansible_check_mode
+  register: nagios_backup
+  tags: [config, backup]
+
+- name: Configure Nagios environment settings
+  copy:
+    dest: /etc/nagios4/env.conf
+    content: |
+      # Nagios configuration for {{ env }} environment
+      # Managed by Ansible
+      # Generated on {{ ansible_date_time.iso8601 }}
+      
+      nagios_server={{ nagios_server }}
+      environment={{ env }}
+      admin_email={{ nagios_admin_email }}
+      check_interval={{ nagios_check_interval }}
+      hostname={{ inventory_hostname }}
+      os={{ ansible_distribution }} {{ ansible_distribution_version }}
+      kernel={{ ansible_kernel }}
+      memory={{ ansible_memtotal_mb }}MB
+      cpus={{ ansible_processor_vcpus }}
+    mode: '0644'
+    owner: nagios
+    group: nagios
+  register: nagios_env_config
+  notify:
+    - restart monitoring services
+    - verify nagios config
+  tags: [config]
+
+- name: Display Nagios configuration status
+  debug:
+    msg: "Nagios environment config {{ 'was updated' if nagios_env_config.changed else 'unchanged' }}"
+  tags: [debug, config]
+
+# Nginx configuration for Nagios
+- name: Test current Nginx configuration
+  command: nginx -t
+  register: nginx_test_before
+  changed_when: false
+  failed_when: false
+  tags: [config, validation]
+
+- name: Configure Nginx for Nagios with SSL
+  template:
+    src: nagios-nginx.conf.j2
+    dest: /etc/nginx/sites-available/nagios
+    mode: '0644'
+    owner: root
+    group: root
+    validate: 'nginx -t -c /etc/nginx/nginx.conf'
+  register: nginx_nagios_config
+  notify:
+    - test nginx config
+    - restart monitoring services
+  tags: [config, nginx]
+
+- name: Display Nginx configuration status
+  debug:
+    msg: "Nginx configuration {{ 'was updated' if nginx_nagios_config.changed else 'unchanged' }}"
+  tags: [debug, config]
+
+- name: Check if Nagios site is enabled
+  stat:
+    path: /etc/nginx/sites-enabled/nagios
+  register: nagios_site_stat
+  tags: [config]
+
+- name: Enable Nagios Nginx site
+  file:
+    src: /etc/nginx/sites-available/nagios
+    dest: /etc/nginx/sites-enabled/nagios
+    state: link
+  when: not nagios_site_stat.stat.exists or not nagios_site_stat.stat.islnk
+  register: site_enabled
+  notify:
+    - restart monitoring services
+  tags: [config]
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  register: default_removed
+  notify:
+    - restart monitoring services
+  tags: [config]
+
+# Service management
+- name: Gather service facts
+  service_facts:
+  tags: [services]
+
+- name: Display current service states
+  debug:
+    msg:
+      - "Nagios: {{ ansible_facts.services['nagios4.service'].state | default('not found') }}"
+      - "Nginx: {{ ansible_facts.services['nginx.service'].state | default('not found') }}"
+      - "Fcgiwrap: {{ ansible_facts.services['fcgiwrap.service'].state | default('not found') }}"
+  when: ansible_facts.services is defined
+  tags: [debug, services]
+
+- name: Ensure fcgiwrap is started and enabled
+  service:
+    name: fcgiwrap
+    state: started
+    enabled: yes
+  register: fcgiwrap_service
+  tags: [services]
+
+- name: Ensure Nginx is started and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+  register: nginx_service
+  tags: [services]
+
+- name: Ensure Nagios is started and enabled
+  service:
+    name: nagios4
+    state: started
+    enabled: yes
+  register: nagios_service
+  tags: [services]
+
+- name: Display service startup results
+  debug:
+    msg:
+      - "Fcgiwrap: {{ 'started' if fcgiwrap_service.changed else 'already running' }}"
+      - "Nginx: {{ 'started' if nginx_service.changed else 'already running' }}"
+      - "Nagios: {{ 'started' if nagios_service.changed else 'already running' }}"
+  tags: [debug, services]
+
+# Wait for services to be ready
+- name: Wait for Nginx to be ready
+  wait_for:
+    port: 443
+    delay: 2
+    timeout: 30
+    state: started
+  when: nginx_service.changed
+  tags: [services, validation]
+
+# Nagios validation
+- name: Verify Nagios configuration
+  command: nagios4 -v /etc/nagios4/nagios.cfg
+  register: nagios_verify
+  changed_when: false
+  failed_when: false
+  tags: [validation]
+
+- name: Display Nagios configuration verification
+  debug:
+    msg: "Nagios configuration: {{ 'VALID' if nagios_verify.rc == 0 else 'HAS ERRORS' }}"
+  tags: [debug, validation]
+
+# Health checks
+- name: Check Nagios web interface accessibility
+  uri:
+    url: "https://{{ ansible_default_ipv4.address }}/nagios4/"
+    validate_certs: no
+    status_code: [200, 401]
+    method: GET
+  register: nagios_web_check
+  failed_when: false
+  when: ansible_default_ipv4.address is defined
+  tags: [validation, health]
+
+- name: Display web interface check result
+  debug:
+    msg: "Nagios web interface: {{ 'ACCESSIBLE' if nagios_web_check.status in [200, 401] else 'NOT ACCESSIBLE' }}"
+  when: nagios_web_check is defined
+  tags: [debug, health]
+
+# Final summary
+- name: Display Nagios deployment summary
+  debug:
+    msg:
+      - "========== Nagios Deployment Summary =========="
+      - "Server: {{ nagios_server }}"
+      - "Environment: {{ env | upper }}"
+      - "Web Interface: https://{{ ansible_default_ipv4.address | default(inventory_hostname) }}/nagios4/"
+      - "Username: nagiosadmin"
+      - "Password: nagiosadmin"
+      - "Admin Email: {{ nagios_admin_email }}"
+      - "Check Interval: {{ nagios_check_interval }} minutes"
+      - "SSL Enabled: {{ ssl_generated.changed or nagios_ssl_stat.stat.exists }}"
+      - "Nagios Status: {{ ansible_facts.services['nagios4.service'].state | default('unknown') }}"
+      - "Nginx Status: {{ ansible_facts.services['nginx.service'].state | default('unknown') }}"
+      - "Config Valid: {{ nagios_verify.rc == 0 }}"
+      - "Web Interface: {{ 'ACCESSIBLE' if nagios_web_check.status in [200, 401] else 'CHECK MANUALLY' }}"
+      - "==============================================="
+  tags: [summary]

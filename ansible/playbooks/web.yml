@@ -1,0 +1,5 @@
+---
+- hosts: "*_web"
+  become: yes
+  roles:
+    - web

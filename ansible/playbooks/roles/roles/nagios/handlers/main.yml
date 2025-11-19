@@ -1,0 +1,76 @@
+---
+# Handlers with listen directive for grouping
+- name: restart nagios4
+  service:
+    name: nagios4
+    state: restarted
+  listen: restart monitoring services
+
+- name: reload nagios4
+  service:
+    name: nagios4
+    state: reloaded
+  listen: restart monitoring services
+
+- name: restart nginx
+  service:
+    name: nginx
+    state: restarted
+  listen: restart monitoring services
+
+- name: reload nginx
+  service:
+    name: nginx
+    state: reloaded
+  listen: restart monitoring services
+
+- name: restart fcgiwrap
+  service:
+    name: fcgiwrap
+    state: restarted
+  listen: restart monitoring services
+
+# Standalone validation handlers
+- name: verify nagios config
+  command: nagios4 -v /etc/nagios4/nagios.cfg
+  changed_when: false
+  register: nagios_config_check
+
+- name: test nginx config
+  command: nginx -t
+  changed_when: false
+  register: nginx_config_check
+
+- name: display nagios config status
+  debug:
+    msg: "Nagios configuration is {{ 'VALID' if nagios_config_check.rc == 0 else 'INVALID' }}"
+  when: nagios_config_check is defined
+
+- name: display nginx config status
+  debug:
+    msg: "Nginx configuration is {{ 'VALID' if nginx_config_check.rc == 0 else 'INVALID' }}"
+  when: nginx_config_check is defined
+
+# Health check handlers
+- name: verify nagios web interface
+  uri:
+    url: "https://localhost/nagios4/"
+    validate_certs: no
+    status_code: [200, 401]
+  register: web_check
+  failed_when: false
+
+- name: wait for monitoring services
+  wait_for:
+    port: 443
+    delay: 2
+    timeout: 30
+    state: started
+
+# Notification handler
+- name: send monitoring notification
+  debug:
+    msg:
+      - "Monitoring services have been restarted"
+      - "Nagios: https://{{ ansible_default_ipv4.address | default('localhost') }}/nagios4/"
+      - "Login: nagiosadmin / nagiosadmin"

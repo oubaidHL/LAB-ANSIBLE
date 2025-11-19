@@ -1,0 +1,20 @@
+---
+# DNS server configuration variables
+dns_forwarders:
+  - 8.8.8.8      # Google Primary DNS
+  - 8.8.4.4      # Google Secondary DNS
+  - 1.1.1.1      # Cloudflare DNS
+dns_allow_query: any
+
+# Additional DNS settings
+dns_cache_size: 256M
+dns_max_cache_ttl: 86400
+dns_recursion_enabled: yes
+
+# Logging
+dns_log_queries: false
+dns_log_level: info
+
+# Security
+dnssec_validation: auto
+rate_limit_enabled: false
