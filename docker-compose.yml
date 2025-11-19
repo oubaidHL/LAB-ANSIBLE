@@ -4,17 +4,13 @@ services:
   master:
     build: ./master
     container_name: master
+    ports:
+      - "2222:22"
     volumes:
       - ./ansible:/ansible
     networks:
       - ansible_net
-    command: >
-      bash -c "
-      if [ ! -f /ansible/id_rsa ]; then
-        ssh-keygen -q -t rsa -N '' -f /ansible/id_rsa;
-      fi;
-      tail -f /dev/null
-      "
+
 
   node1:
     build: ./node

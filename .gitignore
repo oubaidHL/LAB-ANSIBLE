@@ -1,0 +1,44 @@
+# Ansible
+*.retry
+*.log
+
+# SSH Keys
+ansible/secrets/keys/id_rsa
+ansible/secrets/keys/id_rsa.pub
+ansible/secrets/keys/*
+!ansible/secrets/keys/README.md
+
+# Vault files (keep examples)
+ansible/secrets/vault/*.yml
+!ansible/secrets/vault/*.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+.docker/
+
+# Temporary files
+*.tmp
+*.bak

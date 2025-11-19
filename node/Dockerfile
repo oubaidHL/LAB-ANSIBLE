@@ -5,7 +5,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && apt install -y \
     openssh-server \
     sudo \
-    python3
+    python3 \
+    iputils-ping \
+    dnsutils \
+    net-tools
 
 RUN mkdir /var/run/sshd
 
