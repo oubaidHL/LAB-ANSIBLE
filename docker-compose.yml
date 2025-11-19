@@ -5,10 +5,16 @@ services:
     build: ./master
     container_name: master
     hostname: master
+    privileged: true
     ports:
       - "2222:22"
     volumes:
       - ./ansible:/ansible
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     dns:
       - 172.20.0.13  # Dev DNS (node3)
       - 172.20.0.16  # Test DNS (node6)
@@ -27,8 +33,15 @@ services:
     build: ./node
     container_name: node1
     hostname: node1
+    privileged: true
     ports:
       - "8443:443"
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.11
@@ -37,6 +50,13 @@ services:
     build: ./node
     container_name: node2
     hostname: node2
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.12
@@ -45,6 +65,13 @@ services:
     build: ./node
     container_name: node3
     hostname: node3
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.13
@@ -53,6 +80,13 @@ services:
     build: ./node
     container_name: node4
     hostname: node4
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.14
@@ -61,6 +95,13 @@ services:
     build: ./node
     container_name: node5
     hostname: node5
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.15
@@ -69,6 +110,13 @@ services:
     build: ./node
     container_name: node6
     hostname: node6
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.16
@@ -77,6 +125,13 @@ services:
     build: ./node
     container_name: node7
     hostname: node7
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.17
@@ -85,6 +140,13 @@ services:
     build: ./node
     container_name: node8
     hostname: node8
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.18
@@ -93,6 +155,13 @@ services:
     build: ./node
     container_name: node9
     hostname: node9
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.19
@@ -101,6 +170,13 @@ services:
     build: ./node
     container_name: node10
     hostname: node10
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.20
@@ -109,6 +185,13 @@ services:
     build: ./node
     container_name: node11
     hostname: node11
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
     networks:
       ansible_net:
         ipv4_address: 172.20.0.21

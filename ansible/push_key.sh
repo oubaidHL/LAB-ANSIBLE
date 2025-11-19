@@ -33,13 +33,22 @@ for i in {1..11}; do
   NODE_IP=${NODES[$i]}
   echo "  → node$i ($NODE_IP) ..."
   
+  # First check if SSH is accessible
+  timeout 2 bash -c "cat < /dev/null > /dev/tcp/$NODE_IP/22" 2>/dev/null
+  if [ $? -ne 0 ]; then
+    echo "    ⚠ SSH port 22 not responding, trying to start SSH service..."
+    # Try to start SSH via docker exec
+    docker exec node$i systemctl start ssh 2>/dev/null || docker exec node$i /usr/sbin/sshd 2>/dev/null
+    sleep 1
+  fi
+  
   # Use ssh-copy-id or sshpass to copy the key
-  sshpass -p "ansible" ssh-copy-id -o StrictHostKeyChecking=no -i /ansible/secrets/keys/id_rsa.pub ansible@$NODE_IP 2>/dev/null
+  sshpass -p "ansible" ssh-copy-id -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i /ansible/secrets/keys/id_rsa.pub ansible@$NODE_IP 2>/dev/null
   
   if [ $? -eq 0 ]; then
     echo "    ✔ Key deployed successfully"
   else
-    echo "    ✘ Failed to deploy key"
+    echo "    ✘ Failed to deploy key (Error: $?)"
   fi
 done
 
